@@ -4,7 +4,13 @@ This repository contains the official implementation for the paper **"Preconditi
 
 📄 **Paper:** [arXiv:2603.13683](https://arxiv.org/abs/2603.13683)
 
+
+### Content Warning: While this public dataset has been filtered for safety, some prompts may still contain distressing or uncomfortable material. All data is sourced from other public datasets for research purposes.
+
+
 ## Overview
+
+
 
 Although debiased LLMs perform well on known bias patterns, they often fail to generalize to unfamiliar bias prompts, producing toxic outputs. This work first validates that such high-bias prompts constitute a **distribution shift** via OOD detection, then shows that static debiased models degrade under this shift.
 
