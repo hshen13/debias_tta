@@ -5,7 +5,7 @@ This repository contains the official implementation for the paper **"Preconditi
 📄 **Paper:** [arXiv:2603.13683](https://arxiv.org/abs/2603.13683)
 
 
-### Content Warning: While this public dataset has been filtered for safety, some prompts may still contain distressing or uncomfortable material. All data is sourced from other public datasets for research purposes.
+### Content Warning: While this public dataset has been filtered for safety, some prompts may still contain distressing or uncomfortable material. All dataset is sourced from other public datasets for research purposes.
 
 
 ## Overview
