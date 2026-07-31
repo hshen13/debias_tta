@@ -234,7 +234,7 @@ File: `CAPTTA_qwen3_tta_main.ipynb`
 ### Table 10 — Fleiss' Kappa
 
 - **Source data:** `human_evaluation_with_models.csv`
-- **Aggregation/table-generation cell:** not included in the repository notebooks.
+- **Aggregation/table-generation cell:** `compute_fleiss_kappa.ipynb`.
 
 ### Table 11 — Reference Benchmark Values
 
