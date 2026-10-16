@@ -33,40 +33,11 @@ Debiased LLMs handle familiar, low-bias prompts well but break on unfamiliar, hi
 
 **Highlights**
 
-- **Shift first, then fix.** kNN and Mahalanobis detectors separate RealToxicityPrompts from WritingPrompts with AUROC above 98%, so the high-bias prompts sit outside the regime static debiasing was built for.
+- **Shift first, then fix.** OOD detectors separate high-bias prompts (RealToxicityPrompts) from in-distribution story prompts (WritingPrompts), so these prompts sit outside the regime static debiasing was built for.
 - **Update only when needed.** A toxicity committee triggers adaptation; safe segments pass through untouched, which limits parameter drift and catastrophic forgetting.
-- **Fast, stable steps.** Curvature is estimated once, offline, on a generic safe corpus. The online update reuses it, so each triggered update costs 0.84 s versus 5.3–5.7 s for AdamW/SGD.
+- **Fast, stable steps.** Curvature is estimated once, offline, on a generic safe corpus. The online update reuses it, so each triggered update is much cheaper than an SGD or AdamW update.
 
-## Main Results
-
-Narrative generation on out-of-distribution toxic prompts (RealToxicityPrompts), Qwen3-4B backbone. We report generation quality, bias, and the cost of each online update.
-
-| Method | PPL ↓ | Fluency ↑ | BB Bias ↓ | Update (s) ↓ |
-| --- | :---: | :---: | :---: | :---: |
-| Qwen3-4B (static) | 13.491 | 0.298 | 0.452 | N/A |
-| Self-correction | 22.092 | 0.262 | **0.437** | N/A |
-| Qwen-SGD (TTA) | 13.498 | 0.298 | 0.460 | 5.720 |
-| Qwen-AdamW (TTA) | 22.749 | 0.304 | 0.468 | 5.276 |
-| **CAP-TTA (triggered)** | **13.119** | **0.307** | 0.443 | 0.839 |
-| CAP-TTA (triggered, setting 2) | 13.877 | 0.293 | **0.437** | **0.403** |
-
-- **Fast online adaptation.** A triggered CAP-TTA update takes 0.84 s, against 5.72 s (SGD) and 5.28 s (AdamW).
-- **Better text.** With the standard setting, CAP-TTA has the lowest perplexity and the highest fluency of all rows, well above self-correction (0.307 vs. 0.262).
-- **Debiasing on par with self-correction.** The standard setting comes within 0.006 BB Bias of self-correction; the second setting matches it (0.437) while keeping fluency higher (0.293 vs. 0.262).
-
-<sub>Means from Table 3 of the paper; standard deviations, significance tests, StereoSet / StereoDet / Delicate columns, and the DeepSeek-8B and Mistral rows are in the full table. BB Bias is the mean of three offline bias detectors. Update time measures the adapter update only, not end-to-end generation. Row-to-notebook provenance and a code-to-paper audit are in <a href="docs/REPRODUCIBILITY.md">docs/REPRODUCIBILITY.md</a>.</sub>
-
-### OOD Shift Validation
-
-Before adapting, we check that high-bias prompts are actually out of distribution. Qwen3-4B-Base representations, RealToxicityPrompts (OOD) vs. WritingPrompts (ID), Table 2 of the paper:
-
-| OOD detector | AUROC [95% CI] | AUPR |
-| --- | :---: | :---: |
-| kNN (k = 10) | 99.22% [98.88, 99.51] | 99.62% |
-| Mahalanobis | 98.81% [98.39, 99.17] | 99.46% |
-| Likelihood ratio | 70.74% [68.91, 72.60] | 86.67% |
-
-The embedding-based detectors place RealToxicityPrompts in the Far-OOD regime (AUROC > 95%); the likelihood ratio places it Near-OOD.
+Full results, including human evaluation and ablations, are in the [paper](https://aclanthology.org/2026.acl-long.919/).
 
 ## Method
 
