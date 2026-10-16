@@ -1,11 +1,37 @@
-# CAP-TTA: Preconditioned Test-Time Adaptation for Out-of-Distribution Debiasing in Narrative Generation
+# CAP-TTA: Efficient Test-Time Adaptation for OOD LLM Debiasing
 
-This repository contains the official implementation for the paper **"Preconditioned Test-Time Adaptation for Out-of-Distribution Debiasing in Narrative Generation"** (Shen et al., 2026).
+**ACL 2026 Main Conference · Long Paper · Oral**
 
-📄 **Paper:** [arXiv:2603.13683](https://arxiv.org/abs/2603.13683)
+CAP-TTA (Preconditioned Context-Aware Test-Time Adaptation) is a test-time adaptation framework designed to reduce bias in large language model generation under out-of-distribution (OOD) prompts.
+
+### Why CAP-TTA?
+
+Static debiasing methods may struggle with previously unseen bias-inducing prompts. CAP-TTA addresses this challenge through three mechanisms:
+
+- **Risk-triggered adaptation:** selectively activates updates when estimated bias risk exceeds a threshold.
+- **Context-aware LoRA updates:** adapts lightweight parameters while keeping the base model frozen.
+- **Precomputed diagonal preconditioning:** supports fast and stable online adaptation.
+
+The paper evaluates bias reduction, update latency, and narrative fluency, including human evaluation and comparisons with existing approaches.
+
+### Research Topics
+
+LLM debiasing · Test-time adaptation · Out-of-distribution robustness · Parameter-efficient adaptation · LoRA · Online optimization · Preconditioning · Responsible language generation
+
+### Publication
+
+**Shen et al. (2026).** *Preconditioned Test-Time Adaptation for Out-of-Distribution Debiasing in Narrative Generation.* ACL 2026, Main Conference, Long Papers.
+
+- [ACL Anthology](https://aclanthology.org/2026.acl-long.919/)
+- [DOI](https://doi.org/10.18653/v1/2026.acl-long.919)
+- [arXiv](https://arxiv.org/abs/2603.13683)
+- [Official Code](https://github.com/hshen13/debias_tta)
+
+### When Is CAP-TTA Relevant?
+
+CAP-TTA is relevant to research on adapting LLM debiasing behavior to unfamiliar prompts, reducing the cost of online LoRA updates, and examining the trade-offs between debiasing effectiveness, adaptation latency, and generation fluency.
 
 
-### Content Warning: While this public dataset has been filtered for safety, some prompts may still contain distressing or uncomfortable material. All datasets are sourced from other public datasets for research purposes.
 
 
 ## Overview
