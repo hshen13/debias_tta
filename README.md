@@ -1,295 +1,163 @@
-# CAP-TTA: Efficient Test-Time Adaptation for OOD LLM Debiasing
+<p align="center"><b>ACL 2026 · Main Conference · Long Paper · Oral</b></p>
 
-**ACL 2026 Main Conference · Long Paper · Oral**
+<h1 align="center">CAP-TTA</h1>
 
-CAP-TTA (Preconditioned Context-Aware Test-Time Adaptation) is a test-time adaptation framework designed to reduce bias in large language model generation under out-of-distribution (OOD) prompts.
+<h3 align="center">Preconditioned Test-Time Adaptation for Out-of-Distribution Debiasing in Narrative Generation</h3>
 
-### Why CAP-TTA?
+<p align="center">
+  Hanwen Shen<sup>1*</sup>, Ting Ying<sup>2*</sup>, Jiajie Lu<sup>1</sup>, Shanshan Wang<sup>3†</sup><br>
+  <sup>1</sup>Stevens Institute of Technology &nbsp;·&nbsp; <sup>2</sup>Independent Researcher &nbsp;·&nbsp; <sup>3</sup>University of Macau<br>
+  <sub>* Equal contribution &nbsp;·&nbsp; † Corresponding author</sub>
+</p>
 
-Static debiasing methods may struggle with previously unseen bias-inducing prompts. CAP-TTA addresses this challenge through three mechanisms:
+<p align="center">
+  <a href="https://aclanthology.org/2026.acl-long.919/">Paper (ACL Anthology)</a> ·
+  <a href="https://arxiv.org/abs/2603.13683">arXiv</a> ·
+  <a href="https://doi.org/10.18653/v1/2026.acl-long.919">DOI</a> ·
+  <a href="https://github.com/hshen13/debias_tta">Code</a>
+</p>
 
-- **Risk-triggered adaptation:** selectively activates updates when estimated bias risk exceeds a threshold.
-- **Context-aware LoRA updates:** adapts lightweight parameters while keeping the base model frozen.
-- **Precomputed diagonal preconditioning:** supports fast and stable online adaptation.
+## TL;DR
 
-The paper evaluates bias reduction, update latency, and narrative fluency, including human evaluation and comparisons with existing approaches.
+Debiased LLMs handle familiar, low-bias prompts well but break on unfamiliar, high-bias ones. We first show with OOD detection that these prompts are a genuine distribution shift. **CAP-TTA** then corrects the model during generation: it monitors a bias-risk score, and only when the score crosses a threshold does it run a fast LoRA update toward a small safe corpus, using a diagonal preconditioner computed offline. The result is debiasing close to a self-correction model, higher narrative fluency, and adapter updates several times faster than SGD or AdamW.
 
-### Research Topics
+**Highlights**
 
-LLM debiasing · Test-time adaptation · Out-of-distribution robustness · Parameter-efficient adaptation · LoRA · Online optimization · Preconditioning · Responsible language generation
-
-### Publication
-
-**Shen et al. (2026).** *Preconditioned Test-Time Adaptation for Out-of-Distribution Debiasing in Narrative Generation.* ACL 2026, Main Conference, Long Papers.
-
-- [ACL Anthology](https://aclanthology.org/2026.acl-long.919/)
-- [DOI](https://doi.org/10.18653/v1/2026.acl-long.919)
-- [arXiv](https://arxiv.org/abs/2603.13683)
-- [Official Code](https://github.com/hshen13/debias_tta)
-
-### When Is CAP-TTA Relevant?
-
-CAP-TTA is relevant to research on adapting LLM debiasing behavior to unfamiliar prompts, reducing the cost of online LoRA updates, and examining the trade-offs between debiasing effectiveness, adaptation latency, and generation fluency.
-
-
-
+- **Shift first, then fix.** kNN and Mahalanobis detectors separate RealToxicityPrompts from WritingPrompts with AUROC above 98%, so the high-bias prompts sit outside the regime static debiasing was built for.
+- **Update only when needed.** A toxicity committee triggers adaptation; safe segments pass through untouched, which limits parameter drift and catastrophic forgetting.
+- **Fast, stable steps.** Curvature is estimated once, offline, on a generic safe corpus. The online update reuses it, so each triggered update costs 0.84 s versus 5.3–5.7 s for AdamW/SGD.
 
 ## Overview
 
+<p align="center">
+  <img src="assets/cap_tta_overview.png"
+       alt="CAP-TTA framework comparing static LLMs, prior test-time adaptation, and bias-triggered preconditioned test-time adaptation"
+       width="850">
+</p>
 
+<p align="center">
+  <em>Figure 1 from our ACL 2026 paper. Static generation keeps parameters frozen. Prior TTA updates online during generation, which can be costly and unstable. CAP-TTA splits adaptation into an offline precomputed preconditioner P<sub>0</sub> and an online, bias-triggered preconditioned update, routed to a typed safe corpus when the trigger score exceeds ε.</em>
+</p>
 
-Although debiased LLMs perform well on known bias patterns, they often fail to generalize to unfamiliar bias prompts, producing toxic outputs. This work first validates that such high-bias prompts constitute a **distribution shift** via OOD detection, then shows that static debiased models degrade under this shift.
+## Main Results
 
-To adapt on-the-fly, we propose **CAP-TTA** (Preconditioned Context-Aware Test-Time Adaptation), a test-time adaptation framework that:
+Narrative generation on out-of-distribution toxic prompts (RealToxicityPrompts), Qwen3-4B backbone. We report generation quality, bias, and the cost of each online update.
 
-- **Monitors** bias/toxicity risk online during generation.
-- **Triggers** lightweight updates only when the bias-risk score crosses a threshold, avoiding unnecessary parameter drift.
-- **Updates** only a small LoRA adapter module using a precomputed **diagonal preconditioner** for fast, stable few-step updates.
+| Method | PPL ↓ | Fluency ↑ | BB Bias ↓ | Update (s) ↓ |
+| --- | :---: | :---: | :---: | :---: |
+| Qwen3-4B (static) | 13.491 | 0.298 | 0.452 | N/A |
+| Self-correction | 22.092 | 0.262 | **0.437** | N/A |
+| Qwen-SGD (TTA) | 13.498 | 0.298 | 0.460 | 5.720 |
+| Qwen-AdamW (TTA) | 22.749 | 0.304 | 0.468 | 5.276 |
+| **CAP-TTA (triggered)** | **13.119** | **0.307** | 0.443 | 0.839 |
+| CAP-TTA (triggered, setting 2) | 13.877 | 0.293 | **0.437** | **0.403** |
 
-Across toxic-prompt settings and benchmarks, CAP-TTA reduces bias (confirmed by human evaluation) while achieving much lower update latency than AdamW/SGD. It also mitigates catastrophic forgetting, significantly improving narrative fluency over SOTA debiasing baselines while maintaining comparable debiasing effectiveness.
+- **Fast online adaptation.** A triggered CAP-TTA update takes 0.84 s, against 5.72 s (SGD) and 5.28 s (AdamW).
+- **Better text.** With the standard setting, CAP-TTA has the lowest perplexity and the highest fluency of all rows, well above self-correction (0.307 vs. 0.262).
+- **Debiasing on par with self-correction.** The standard setting comes within 0.006 BB Bias of self-correction; the second setting matches it (0.437) while keeping fluency higher (0.293 vs. 0.262).
 
-## Repository Structure
+<sub>Means from Table 3 of the paper; standard deviations, significance tests, StereoSet / StereoDet / Delicate columns, and the DeepSeek-8B and Mistral rows are in the full table. BB Bias is the mean of three offline bias detectors. Update time measures the adapter update only, not end-to-end generation. Row-to-notebook provenance and a code-to-paper audit are in <a href="docs/REPRODUCIBILITY.md">docs/REPRODUCIBILITY.md</a>.</sub>
 
-| File | Description |
-| --- | --- |
-| `CAPTTA_qwen3_tta_main.ipynb` | Main pipeline: CAP-TTA test-time adaptation on top of a Qwen3 backbone with LoRA updates, trigger logic, and preconditioned optimizer. |
-| `OOD.ipynb` | Out-of-distribution detection experiments validating that high-bias prompts constitute a distribution shift relative to the debiasing training set. |
-| `bias_clean_dedup (2).ipynb` | Data preparation: cleaning and deduplication of bias/toxicity prompt corpora used for training and evaluation. |
+### OOD Shift Validation
 
-## Method at a Glance
+Before adapting, we check that high-bias prompts are actually out of distribution. Qwen3-4B-Base representations, RealToxicityPrompts (OOD) vs. WritingPrompts (ID), Table 2 of the paper:
 
-CAP-TTA reframes debiasing as a **continual adaptation problem under distribution shift**:
+| OOD detector | AUROC [95% CI] | AUPR |
+| --- | :---: | :---: |
+| kNN (k = 10) | 99.22% [98.88, 99.51] | 99.62% |
+| Mahalanobis | 98.81% [98.39, 99.17] | 99.46% |
+| Likelihood ratio | 70.74% [68.91, 72.60] | 86.67% |
 
-1. **Trigger** — A bias-risk score is computed per generation step. Updates fire only when the score exceeds a threshold, keeping inference overhead low on safe prompts.
-2. **Context-aware LoRA update** — Only LoRA adapter weights are updated; the base model stays frozen.
-3. **Diagonal preconditioner** — A precomputed diagonal preconditioner rescales gradients for faster and more stable few-step adaptation than vanilla SGD/AdamW.
+The embedding-based detectors place RealToxicityPrompts in the Far-OOD regime (AUROC > 95%); the likelihood ratio places it Near-OOD.
 
-## Getting Started
+## Method
 
-### Requirements
+CAP-TTA adapts a small LoRA adapter on top of a frozen backbone, one prompt at a time. The adapter is reset at the start of each prompt.
 
-The notebooks use the Hugging Face stack with a Qwen3 backbone and PEFT/LoRA. Typical dependencies:
+1. **Bias trigger.** After each generated segment, a committee of three toxicity classifiers scores the text. An update fires only when the mean score exceeds the threshold ε.
+2. **Context-aware safe data.** A bias router assigns the segment to a bias type (race, gender, religion, other) and draws matching examples from a typed SafeBank built from HolisticBias, filtered to low bias scores.
+3. **Preconditioned update.** The LoRA adapter takes a trust-region step toward the safe examples. Its diagonal inverse-Fisher preconditioner P<sub>0</sub> is computed once, offline, on a generic safe corpus (WikiText-2), so the online update is well scaled from the first step.
+
+The objective, its derivation as a KL projection with a trust region, and all hyperparameters are in Sections 3–4 and Appendix A of the paper.
+
+## Installation and Reproduction
+
+### Environment
+
+The experiments ran in Google Colab notebooks (Python 3.12); the OOD experiments used an NVIDIA A100 80 GB. Exact package versions were not pinned at the time, so `requirements.txt` lists the libraries the notebooks import, with the one version bound the notebooks state (`transformers>=4.45.0`).
 
 ```bash
-pip install torch transformers peft accelerate datasets bitsandbytes
-pip install scikit-learn numpy pandas tqdm jupyter
+pip install -r requirements.txt
 ```
 
-A CUDA-capable GPU with sufficient VRAM to run Qwen3 + LoRA is recommended.
+A CUDA GPU large enough for Qwen3-4B plus LoRA in bf16 is required; the DeepSeek-8B rows need more memory.
 
-### Running the Notebooks
+### Notebooks
 
-Run in the following order for a full reproduction:
+| Step | Notebook | Produces |
+| --- | --- | --- |
+| 1 | `bias_clean_dedup (2).ipynb` | Cleaned and deduplicated bias prompt data |
+| 2 | `OOD.ipynb` | OOD detection (Table 2) |
+| 3 | `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb` | Static and debiased baselines, final scoring, table assembly (Tables 1, 3, 4) |
+| 4 | `CAPTTA_qwen3_tta_main.ipynb` | CAP-TTA and SGD/AdamW TTA runs, trigger and ablation sweeps (Tables 3, 4) |
+| 5 | `compute_fleiss_kappa.ipynb` | Inter-annotator agreement (Table 10) |
 
-1. `bias_clean_dedup (2).ipynb` — Prepare and deduplicate the bias prompt data.
-2. `OOD.ipynb` — Reproduce the OOD detection analysis showing distribution shift on high-bias prompts.
-3. `CAPTTA_qwen3_tta_main.ipynb` — Run CAP-TTA test-time adaptation and evaluate against baselines.
+Set dataset paths, model checkpoints, and the trigger threshold at the top of each notebook. Per-table provenance is in [docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md) and the model checkpoints are listed in [docs/MODELS.md](docs/MODELS.md).
 
-Adjust dataset paths, model checkpoints, and the bias-risk threshold at the top of each notebook as needed.
+### Repository structure
+
+```
+debias_tta/
+├── README.md
+├── CITATION.cff
+├── requirements.txt
+├── assets/cap_tta_overview.png        # Figure 1 of the paper
+├── docs/
+│   ├── REPRODUCIBILITY.md             # table-by-table provenance
+│   └── MODELS.md                      # backbones, trigger committee, scorers
+├── CAPTTA_qwen3_tta_main.ipynb        # CAP-TTA, TTA baselines, ablations
+├── OOD.ipynb                          # OOD detection
+├── colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb
+├── colab_qwen3_tta_generate_then_score_ablation_v3_score_baselines_too.ipynb
+├── bias_clean_merged_shift_baselines_tta_ablations.ipynb
+├── bias_clean_dedup (2).ipynb
+├── compute_fleiss_kappa.ipynb
+├── human_evaluation_with_models.csv   # human evaluation ratings
+├── Content_Warning_safebank_cache/    # SafeBank and safe-corpus caches (content warning)
+├── CAP_TTA_provenance_and_data_audit_EN.md
+├── 2026-002_FA_Shen2.pdf              # IRB determination
+└── slides/
+```
 
 ## Citation
 
-If you find this work useful, please cite the paper:
-
 ```bibtex
-@article{shen2026captta,
-  title   = {Preconditioned Test-Time Adaptation for Out-of-Distribution Debiasing in Narrative Generation},
-  author  = {Shen, Hanwen and Ying, Ting and Lu, Jiajie and Wang, Shanshan},
-  journal = {arXiv preprint arXiv:2603.13683},
-  year    = {2026}
+@inproceedings{shen-etal-2026-preconditioned,
+    title = "Preconditioned Test-Time Adaptation for Out-of-Distribution Debiasing in Narrative Generation",
+    author = "Shen, Hanwen  and
+      Ying, Ting  and
+      Lu, Jiajie  and
+      Wang, Shanshan",
+    editor = "Liakata, Maria  and
+      Moreira, Viviane P.  and
+      Zhang, Jiajun  and
+      Jurgens, David",
+    booktitle = "Proceedings of the 64th Annual Meeting of the {A}ssociation for {C}omputational {L}inguistics (Volume 1: Long Papers)",
+    month = jul,
+    year = "2026",
+    address = "San Diego, California, United States",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2026.acl-long.919/",
+    doi = "10.18653/v1/2026.acl-long.919",
+    pages = "20071--20104",
+    ISBN = "979-8-89176-390-6"
 }
 ```
 
 ## License
 
-Unless stated otherwise, the code in this repository is released for research use. Please refer to the licenses of the underlying base models (e.g., Qwen3) and datasets when using or redistributing.
+No license has been chosen for this repository yet, so default copyright applies. Base models (e.g., Qwen3) and datasets keep their own licenses.
 
 ## Contact
 
-For questions about the paper or code, please open an issue or contact the authors listed on the arXiv page.
-
-## Paper Table Provenance
-
-The entries below identify the notebook/file and the searchable cell heading, function, configuration, or dictionary used to generate or assemble each table in the paper.
-
-### Shared pipeline for Tables 1, 3, and 4
-
-- **Prompt sets:** `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`
-  - Cell: `## 3) Prompts: SAFE vs TOXIC`
-  - Functions: `build_toxic_prompts_rtp`, `build_safe_prompts_writingprompts`
-- **Final BiasBench and quality scoring:** `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`
-  - Cell: `# Final Bias Benchmark Scoring (NOT trigger benchmarks) + Quality (PPL, rep4, lengths)`
-  - Functions: `bias_bench_score`, `_prob_positive`, `_detexd_risk`, `ppl_on_text`, `fluency_from_ppl`
-- **Online trigger scoring:** `CAPTTA_qwen3_tta_main.ipynb`
-  - Functions/classes: `toxic_prob_committee_mean`, `BiasScorer4Type`
-
-### Table 1 — ID/OOD Bias and Speed
-
-- **Generation for all five model rows:** `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`
-  - Cell: `## 1) Models (baseline generation only)`
-  - Object: `MODELS`
-  - Cell: `## 6) Phase 1: Generate ONLY`
-  - Functions: `run_split_generate_only`, `generate_one_segment`
-- **Table assembly:** same notebook
-  - Cell: `# Recompute Table~\ref{tab:main_results} from SCORED CSVs (HARD-CODED)`
-  - Dictionary: `PATHS`
-
-### Table 2 — OOD Detection
-
-All rows are in `OOD.ipynb`:
-
-1. `# 1) Load Qwen3 + Background LM (for LLR)`
-2. `# 2) Load datasets & build ID/OOD splits`
-3. `# 3) Scoring functions` — `score_llr`
-4. `# 4) Embedding-based detectors (Mahalanobis / kNN)` — `extract_reps`, `fit_knn`, `fit_mahalanobis`
-5. `# 5) Metrics` — `eval_detector`
-6. `# 6) Significance tests` — `bootstrap_ci_metric`
-7. `# 7) Run all detectors + benchmark comparison table`
-
-### Table 3 — Main Results
-
-#### Static/debiased model rows
-
-File: `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`
-
-- `Qwen-3-4B`: `MODELS` entry with `key="qwen3_4b"` + `## 6) Phase 1: Generate ONLY`
-- `DeepSeek-8B`: `MODELS` entry with `key="deepseek_r1_8b"` + Phase 1
-- `Mistral`: `MODELS` entry with `key="mistral_7b_instruct"` + Phase 1
-- `Self-correction`: `MODELS` entry with `key="qwen4b_self_correct"` + Phase 1
-- `DS-8B-debiased`: `MODELS` entry with `key="deepseek_r1_8b_debiased"` + Phase 1
-
-#### TTA rows
-
-File: `CAPTTA_qwen3_tta_main.ipynb`
-
-- `Qwen-SGD`
-  - Cell: `# 1) method compare`
-  - Configuration: `kind="sgd10"`, `update_kind="sgd_10"`, `epsilon=0.3`
-  - Function: `tta_step_sgd_10`
-- `Qwen-ADAMW`
-  - Cell: `# 1) method compare`
-  - Configuration: `kind="adamw10"`, `update_kind="adamw_10"`, `epsilon=0.3`
-  - Function: `tta_step_adamw_10`
-- `Qwen-Prec-trig`
-  - Cell: `# 1) method compare`
-  - Configuration: `kind="precond"`, `epsilon=0.3`
-  - Functions: `run_main_experiments`, `tta_lora_update_precond`, `estimate_preconditioner_diag`
-- `Qwen-Prec-notrig`
-  - Cell: `# 2) epsilon sweep (precond)`
-  - Entry: `epsilon=0`
-- `Qwen-Prec-trig-2`
-  - Cell/configuration: `BASE_PRECOND_THEORETICAL`
-
-#### Table assembly
-
-File: `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`
-
-- Cell: `# FINAL PAPER TABLE GENERATOR (RECOMPUTE MEAN ± STD)`
-- Dictionary/function: `MAIN_ROWS`, `metrics_from_csv`
-- StereoSet/StereoDet/Delicate columns: cell `# MAIN TABLE (EXPANDED BIAS)`
-
-### Table 4 — Ablations
-
-- `Qwen Baseline`
-  - File: `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`
-  - Location: `MODELS` entry `qwen3_4b` + `## 6) Phase 1: Generate ONLY`
-- `Epsilon: eps0.2 / eps0.25`
-  - File: `CAPTTA_qwen3_tta_main.ipynb`
-  - Cell: `# 2) epsilon sweep (precond)`
-- `Segments: nseg2 / nseg8`
-  - File: `CAPTTA_qwen3_tta_main.ipynb`
-  - Cell: `# 5) length ablation`
-  - Loop: `for nseg in [2, 4, 8]`
-- `SegTokens: tok64 / tok256`
-  - File: `CAPTTA_qwen3_tta_main.ipynb`
-  - Cell: `# 5) length ablation`
-  - Loop: `for seg_tokens in [64, 128, 256]`
-- `NoTrig: eps0,nseg16,tok128`
-  - File: `CAPTTA_qwen3_tta_main_updated.ipynb`
-  - Cell: `=== 2) Qwen3 新增配置：epsilon=0，128 token/段，16 段 ===`
-  - Configuration: `BASE_QWEN3_EPS0_16SEG`
-- `MultiTrigger: multi0 / multi1`
-  - File: `CAPTTA_qwen3_tta_main.ipynb`
-  - Cell: `# 4) multi-trigger vs single-trigger`
-  - Loop: `for multi in [True, False]`
-- `DeepSeek Baseline`
-  - File: `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`
-  - Location: `MODELS` entry `deepseek_r1_8b` + Phase 1
-- `DeepSeek Precond eps0.3`
-  - File: `CAPTTA_qwen3_tta_main.ipynb`
-  - Cell: `# ========= DeepSeek 接入（复用你现有 run_main_experiments…）=========`
-
-**Table assembly:** `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`
-
-- Cell: `# FINAL PAPER TABLE GENERATOR (RECOMPUTE MEAN ± STD)`
-- Dictionary: `ABL_ROWS`
-- NoTrig selected-output cell: `# SELECTED-ONLY (4 files) -> new CSV + paper-style LaTeX`
-
-### Table 5 — Human Evaluation Bias Rate
-
-- **Source data:** `human_evaluation_with_models.csv`
-- **Aggregation/table-generation cell:** not included in the repository notebooks.
-
-### Table 6 — Generated Example, prompt_id=117
-
-- **Display/scoring code:** `CAPTTA_qwen3_tta_main.ipynb`
-  - Section: `# 3) 评分器：committee bias_score（tox_mean）`
-  - Functions: `score_committee`, `show_record_with_scoring`
-- **Source outputs:** TTA output from `run_main_experiments` and Qwen baseline output from `## 6) Phase 1: Generate ONLY` in `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`.
-
-### Table 7 — Generated Example, prompt_id=3
-
-- **Display/scoring code:** `CAPTTA_qwen3_tta_main.ipynb`
-  - Section: `# 3) 评分器：committee bias_score（tox_mean）`
-  - Functions: `score_committee`, `show_record_with_scoring`
-- **Source outputs:** TTA output from `run_main_experiments` and Qwen baseline output from `## 6) Phase 1: Generate ONLY` in `colab_baselines_generate_then_score_cl_exp2_(1)_(6).ipynb`.
-
-### Table 8 — Router Examples
-
-File: `CAPTTA_qwen3_tta_main.ipynb`
-
-- Function/cell: `pretty_print_scores`
-- Demo cell: `# ---- demo examples ----`
-- Scoring implementation: `BiasScorer4Type`, `toxic_prob_committee_mean`
-
-### Table 9 — IRB Screening Responses
-
-- **Source document:** `2026-002_FA_Shen2.pdf`
-- **Code-generated:** no.
-
-### Table 10 — Fleiss' Kappa
-
-- **Source data:** `human_evaluation_with_models.csv`
-- **Aggregation/table-generation cell:** `compute_fleiss_kappa.ipynb`.
-
-### Table 11 — Reference Benchmark Values
-
-- Literature values copied from the original benchmark papers.
-- No repository computation or table-generation code.
-
-## Model Checkpoints
-
-### Generation and Backbone Models
-
-- [`Qwen/Qwen3-4B`](https://huggingface.co/Qwen/Qwen3-4B) — main Qwen3 backbone for CAP-TTA and the Qwen baselines.
-- [`Qwen/Qwen3-4B-Base`](https://huggingface.co/Qwen/Qwen3-4B-Base) — Qwen3 base checkpoint used in the OOD-detection experiments.
-- [`deepseek-ai/DeepSeek-R1-Distill-Llama-8B`](https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B) — DeepSeek-R1-8B baseline and CAP-TTA backbone.
-- [`hirundo-io/DeepSeek-R1-Distill-Llama-8B-Debiased`](https://huggingface.co/hirundo-io/DeepSeek-R1-Distill-Llama-8B-Debiased) — offline debiased DeepSeek baseline.
-- [`mistralai/Mistral-7B-Instruct-v0.3`](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3) — Mistral baseline.
-- `fenffef/Qwen-4B-Instruct-2505-Self-correct` — self-correction/Sherlock checkpoint used in the experiment code. The currently available repository is [`fenffef/Qwen-4B-Instruct-2507-Self-correct`](https://huggingface.co/fenffef/Qwen-4B-Instruct-2507-Self-correct).
-
-### Online Trigger Committee
-
-- [`s-nlp/roberta_toxicity_classifier`](https://huggingface.co/s-nlp/roberta_toxicity_classifier)
-- [`unitary/toxic-bert`](https://huggingface.co/unitary/toxic-bert)
-- [`unitary/unbiased-toxic-roberta`](https://huggingface.co/unitary/unbiased-toxic-roberta)
-
-### Offline Bias Reporting Models
-
-- [`grammarly/detexd-roberta-base`](https://huggingface.co/grammarly/detexd-roberta-base)
-- [`henryscheible/stereoset_trainer_roberta-base_finetuned`](https://huggingface.co/henryscheible/stereoset_trainer_roberta-base_finetuned)
-- [`Narrativa/distilroberta-finetuned-stereotype-detection`](https://huggingface.co/Narrativa/distilroberta-finetuned-stereotype-detection)
-
-### Quality and OOD Evaluation
-
-- [`openai-community/gpt2`](https://huggingface.co/openai-community/gpt2) — perplexity/fluency evaluation and the likelihood-ratio background language model.
+Please open an issue, or email Hanwen Shen (hs907@scarletmail.rutgers.edu) or Shanshan Wang (nlp2ct.shanshan@gmail.com).
