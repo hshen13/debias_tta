@@ -33,9 +33,9 @@ Debiased LLMs handle familiar, low-bias prompts well but break on unfamiliar, hi
 
 **Highlights**
 
-- **Shift first, then fix.** OOD detectors separate high-bias prompts (RealToxicityPrompts) from in-distribution story prompts (WritingPrompts), so these prompts sit outside the regime static debiasing was built for.
+- **Shift first, then fix.** kNN and Mahalanobis detectors separate RealToxicityPrompts from WritingPrompts with AUROC above 98%, so the high-bias prompts sit outside the regime static debiasing was built for.
 - **Update only when needed.** A toxicity committee triggers adaptation; safe segments pass through untouched, which limits parameter drift and catastrophic forgetting.
-- **Fast, stable steps.** Curvature is estimated once, offline, on a generic safe corpus. The online update reuses it, so each triggered update is much cheaper than an SGD or AdamW update.
+- **Fast, stable steps.** Curvature is estimated once, offline, on a generic safe corpus. The online update reuses it, so each triggered update costs 0.84 s versus 5.3–5.7 s for AdamW/SGD.
 
 Full results, including human evaluation and ablations, are in the [paper](https://aclanthology.org/2026.acl-long.919/).
 
