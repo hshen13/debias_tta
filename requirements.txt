@@ -1,0 +1,19 @@
+# Libraries imported by the CAP-TTA notebooks.
+# Original runs: Google Colab, Python 3.12. Versions were not pinned at the time;
+# the only stated bound comes from bias_clean_dedup (2).ipynb.
+torch
+transformers>=4.45.0
+peft
+accelerate
+datasets
+sentencepiece
+numpy
+pandas
+scipy
+scikit-learn
+statsmodels
+tweetnlp
+matplotlib
+seaborn
+tqdm
+jupyter
