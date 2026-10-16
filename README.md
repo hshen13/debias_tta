@@ -17,18 +17,6 @@
   <a href="https://github.com/hshen13/debias_tta">Code</a>
 </p>
 
-## TL;DR
-
-Debiased LLMs handle familiar, low-bias prompts well but break on unfamiliar, high-bias ones. We first show with OOD detection that these prompts are a genuine distribution shift. **CAP-TTA** then corrects the model during generation: it monitors a bias-risk score, and only when the score crosses a threshold does it run a fast LoRA update toward a small safe corpus, using a diagonal preconditioner computed offline. The result is debiasing close to a self-correction model, higher narrative fluency, and adapter updates several times faster than SGD or AdamW.
-
-**Highlights**
-
-- **Shift first, then fix.** kNN and Mahalanobis detectors separate RealToxicityPrompts from WritingPrompts with AUROC above 98%, so the high-bias prompts sit outside the regime static debiasing was built for.
-- **Update only when needed.** A toxicity committee triggers adaptation; safe segments pass through untouched, which limits parameter drift and catastrophic forgetting.
-- **Fast, stable steps.** Curvature is estimated once, offline, on a generic safe corpus. The online update reuses it, so each triggered update costs 0.84 s versus 5.3–5.7 s for AdamW/SGD.
-
-## Overview
-
 <p align="center">
   <img src="assets/cap_tta_overview.png"
        alt="CAP-TTA framework comparing static LLMs, prior test-time adaptation, and bias-triggered preconditioned test-time adaptation"
@@ -38,6 +26,16 @@ Debiased LLMs handle familiar, low-bias prompts well but break on unfamiliar, hi
 <p align="center">
   <em>Figure 1 from our ACL 2026 paper. Static generation keeps parameters frozen. Prior TTA updates online during generation, which can be costly and unstable. CAP-TTA splits adaptation into an offline precomputed preconditioner P<sub>0</sub> and an online, bias-triggered preconditioned update, routed to a typed safe corpus when the trigger score exceeds ε.</em>
 </p>
+
+## TL;DR
+
+Debiased LLMs handle familiar, low-bias prompts well but break on unfamiliar, high-bias ones. We first show with OOD detection that these prompts are a genuine distribution shift. **CAP-TTA** then corrects the model during generation: it monitors a bias-risk score, and only when the score crosses a threshold does it run a fast LoRA update toward a small safe corpus, using a diagonal preconditioner computed offline. The result is debiasing close to a self-correction model, higher narrative fluency, and adapter updates several times faster than SGD or AdamW.
+
+**Highlights**
+
+- **Shift first, then fix.** kNN and Mahalanobis detectors separate RealToxicityPrompts from WritingPrompts with AUROC above 98%, so the high-bias prompts sit outside the regime static debiasing was built for.
+- **Update only when needed.** A toxicity committee triggers adaptation; safe segments pass through untouched, which limits parameter drift and catastrophic forgetting.
+- **Fast, stable steps.** Curvature is estimated once, offline, on a generic safe corpus. The online update reuses it, so each triggered update costs 0.84 s versus 5.3–5.7 s for AdamW/SGD.
 
 ## Main Results
 
